@@ -1,0 +1,104 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Prose from '../../components/Prose.astro';
+
+// 型定義
+type NewsItem = {
+  id: string;
+  title: string;
+  publishedAt: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+};
+
+// APIからのデータ取得部分
+let news: NewsItem[] = [];
+let error = null;
+
+try {
+  // microCMSモジュールをインポート
+  const microcmsModule = await import('../../lib/microcms');
+  
+  // ニュース記事の取得
+  if (microcmsModule?.getAllNews) {
+    try {
+      news = await microcmsModule.getAllNews();
+    } catch (newsError) {
+      error = newsError;
+    }
+  } else {
+    // モックデータを使用
+    news = [
+      { id: 'mock1', title: 'Mock News 1', publishedAt: new Date().toISOString() },
+      { id: 'mock2', title: 'Mock News 2', publishedAt: new Date().toISOString() }
+    ];
+  }
+} catch (e) {
+  error = e;
+}
+---
+
+<Layout title="お知らせ一覧">
+  <Prose>
+    <h1>お知らせ一覧</h1>
+    
+    <!-- お知らせがない場合のメッセージ -->
+    {news.length === 0 && !error && (
+      <p>現在お知らせはありません。</p>
+    )}
+    
+    <!-- お知らせリスト -->
+    {news.length > 0 && (
+      <ul class="news-list">
+        {news.map((item) => (
+          <li class="news-item">
+            <a href={`/news/${item.id}`}>
+              <span class="date">{new Date(item.publishedAt).toLocaleDateString()}</span>
+              {item.category && (
+                <span class="category">{item.category.name}</span>
+              )}
+              <span class="title">{item.title}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </Prose>
+</Layout>
+
+<style>
+  .news-list {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .news-item {
+    border-bottom: 1px solid #eaeaea;
+    padding: 1rem 0;
+  }
+  
+  .news-item a {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  .date {
+    min-width: 100px;
+  }
+  
+  .category {
+    background-color: #e0e0e0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin: 0 1rem;
+  }
+  
+  .title {
+    font-weight: 500;
+  }
+</style> 

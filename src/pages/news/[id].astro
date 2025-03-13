@@ -1,0 +1,137 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Prose from '../../components/Prose.astro';
+
+// 静的ビルド時に生成するパスを定義
+export async function getStaticPaths() {
+  try {
+    // microCMSから全記事を取得
+    const microcmsModule = await import('../../lib/microcms');
+    const news = await microcmsModule.getAllNews();
+    
+    // 各記事のIDをパスとして生成
+    return news.map((item: NewsItem) => ({
+      params: { id: item.id },
+      props: { newsItem: item }, // 事前にデータを渡しておくとパフォーマンスが向上
+    }));
+  } catch (error) {
+    console.error('Error fetching news for static paths:', error);
+    // エラーが発生した場合は空の配列を返す
+    return [];
+  }
+}
+
+// Propsの型定義を追加
+interface Props {
+  newsItem?: NewsItem;
+}
+
+// URLパラメータとpropsからデータを取得
+const { id } = Astro.params;
+const preloadedNews = Astro.props.newsItem;
+
+// 型定義
+type NewsItem = {
+  id: string;
+  title: string;
+  publishedAt: string;
+  content: string;
+  category?: {
+    id: string;
+    name: string;
+  };
+};
+
+// 記事データと読み込み状態
+let news: NewsItem | null = preloadedNews || null;
+let error = null;
+
+// 事前読み込みデータがない場合はAPIから再取得
+if (!news) {
+  try {
+    const microcmsModule = await import('../../lib/microcms');
+    
+    if (microcmsModule?.getNewsById && id) {
+      news = await microcmsModule.getNewsById(id);
+    }
+  } catch (e) {
+    error = e;
+  }
+}
+---
+
+<Layout title={news?.title || 'お知らせ'}>
+  <Prose>
+    <!-- 戻るリンク -->
+    <p>
+      <a href="/news/" class="back-link">← お知らせ一覧に戻る</a>
+    </p>
+    
+    {error && (
+      <div class="error-message">
+        <p>記事の読み込み中にエラーが発生しました。</p>
+      </div>
+    )}
+    
+    {news && (
+      <article class="news-detail">
+        <header>
+          <h1>{news.title}</h1>
+          <div class="meta">
+            <time datetime={news.publishedAt}>
+              {new Date(news.publishedAt).toLocaleDateString()}
+            </time>
+            {news.category && (
+              <span class="category">{news.category.name}</span>
+            )}
+          </div>
+        </header>
+        
+        <div class="content" set:html={news.content} />
+      </article>
+    )}
+  </Prose>
+</Layout>
+
+<style>
+  .back-link {
+    display: inline-block;
+    margin-bottom: 1.5rem;
+    text-decoration: none;
+    color: #666;
+  }
+  
+  .back-link:hover {
+    text-decoration: underline;
+  }
+  
+  .news-detail header {
+    margin-bottom: 2rem;
+  }
+  
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    color: #666;
+  }
+  
+  .category {
+    background-color: #e0e0e0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+  
+  .content {
+    line-height: 1.6;
+  }
+  
+  .error-message {
+    padding: 1rem;
+    background-color: #fff0f0;
+    border-left: 4px solid #ff6b6b;
+    margin-bottom: 1rem;
+  }
+</style> 
